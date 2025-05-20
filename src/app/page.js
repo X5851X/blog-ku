@@ -1,103 +1,216 @@
-import Image from "next/image";
+'use client';
+
+import { useEffect, useState, useRef } from 'react';
+import LoadingScreen from './components/LoadingScreen';
+import Hero from './components/Hero';
+import About from './components/About';
+import Projects from './components/Projects';
+import Skills from './components/Skills';
+import Writing from './components/Writing';
+import Contact from './components/Contact';
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.js
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [loading, setLoading] = useState(true);
+  const [currentSection, setCurrentSection] = useState(0);
+  const [transitioning, setTransitioning] = useState(false);
+  const sections = [
+    { component: Hero, id: 'hero' },
+    { component: About, id: 'about' },
+    { component: Projects, id: 'projects' },
+    { component: Skills, id: 'skills' },
+    { component: Writing, id: 'writing' },
+    { component: Contact, id: 'contact' }
+  ];
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+  // Single ref to control if scrolling is allowed
+  const canScroll = useRef(true);
+  const lastScrollTime = useRef(Date.now());
+  const touchStartY = useRef(null);
+
+  // Loading simulation
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setLoading(false);
+    }, 1500);
+    
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Section change handler - significantly simplified
+  const changeSection = (newSection) => {
+    // Don't do anything if already transitioning or invalid section
+    if (!canScroll.current || newSection < 0 || newSection >= sections.length) return;
+    
+    // Lock scrolling immediately
+    canScroll.current = false;
+    setTransitioning(true);
+    
+    // Set timeout for fade out
+    setTimeout(() => {
+      // Change the section
+      setCurrentSection(newSection);
+      
+      // Set timeout for fade in
+      setTimeout(() => {
+        setTransitioning(false);
+        
+        // Add delay before allowing next scroll
+        setTimeout(() => {
+          canScroll.current = true;
+        }, 800); // Longer cooldown to fix rapid scrolling issues
+        
+      }, 300);
+    }, 300);
+  };
+
+  // Handle scroll input from any source (wheel, touch, keyboard)
+  const handleScrollInput = (direction) => {
+    const now = Date.now();
+    // Force minimum time between scroll actions
+    if (!canScroll.current || now - lastScrollTime.current < 1000) {
+      return;
+    }
+    
+    lastScrollTime.current = now;
+    
+    if (direction === 'down' && currentSection < sections.length - 1) {
+      changeSection(currentSection + 1);
+    } else if (direction === 'up' && currentSection > 0) {
+      changeSection(currentSection - 1);
+    }
+  };
+
+  // Set up event listeners
+  useEffect(() => {
+    if (loading) return;
+
+    // Wheel event handler with strong debounce
+    const handleWheel = (e) => {
+      e.preventDefault();
+      handleScrollInput(e.deltaY > 0 ? 'down' : 'up');
+    };
+
+    // Touch controls for mobile
+    const handleTouchStart = (e) => {
+      touchStartY.current = e.touches[0].clientY;
+    };
+
+    const handleTouchEnd = (e) => {
+      if (touchStartY.current === null) return;
+      
+      const touchEnd = e.changedTouches[0].clientY;
+      const diff = touchStartY.current - touchEnd;
+      
+      // Use a more generous threshold to avoid accidental scrolling
+      if (Math.abs(diff) > 70) {
+        handleScrollInput(diff > 0 ? 'down' : 'up');
+      }
+      
+      touchStartY.current = null;
+    };
+
+    // Keyboard navigation (arrow keys)
+    const handleKeyDown = (e) => {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        handleScrollInput('down');
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        handleScrollInput('up');
+      }
+    };
+
+    // Prevent default body scrolling completely
+    const preventScroll = (e) => {
+      e.preventDefault();
+    };
+
+    // Add event listeners with proper options
+    window.addEventListener('wheel', handleWheel, { passive: false });
+    window.addEventListener('touchstart', handleTouchStart, { passive: true });
+    window.addEventListener('touchend', handleTouchEnd, { passive: true });
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('scroll', preventScroll, { passive: false });
+    
+    // Lock body scrolling
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+    
+    return () => {
+      // Remove all event listeners
+      window.removeEventListener('wheel', handleWheel);
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchend', handleTouchEnd);
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('scroll', preventScroll);
+      
+      // Restore normal scrolling
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+    };
+  }, [currentSection, loading, sections.length]);
+
+  if (loading) {
+    return <LoadingScreen />;
+  }
+
+  return (
+    <main style={{ height: '100vh', overflow: 'hidden', position: 'relative' }}>
+      <div 
+        style={{ 
+          height: '100vh', 
+          transition: 'transform 0.7s cubic-bezier(0.34, 1.56, 0.64, 1)',
+          transform: `translateY(-${currentSection * 100}vh)`
+        }}
+      >
+        {sections.map((section, index) => {
+          const Component = section.component;
+          return (
+            <div 
+              key={section.id}
+              id={section.id}
+              style={{
+                height: '100vh',
+                width: '100%',
+                opacity: transitioning ? 0 : 1,
+                transition: 'opacity 0.3s ease',
+                position: 'relative'
+              }}
+            >
+              <Component />
+            </div>
+          );
+        })}
+      </div>
+      
+      {/* Navigation Dots - same as original */}
+      <div style={{
+        position: 'fixed',
+        right: '25px',
+        top: '50%',
+        transform: 'translateY(-50%)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '12px',
+        zIndex: 100
+      }}>
+        {sections.map((section, index) => (
+          <button
+            key={index}
+            onClick={() => changeSection(index)}
+            style={{
+              width: '14px',
+              height: '14px',
+              borderRadius: '50%',
+              backgroundColor: currentSection === index ? '#ffffff' : 'rgba(255, 255, 255, 0.5)',
+              border: 'none',
+              cursor: 'pointer',
+              transition: 'all 0.3s ease'
+            }}
+            aria-label={`Go to section ${index + 1}`}
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+        ))}
+      </div>
+    </main>
   );
 }
